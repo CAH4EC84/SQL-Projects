@@ -1,0 +1,40 @@
+USE [Medis_reports]
+GO
+/****** Object:  UserDefinedFunction [dbo].[fn_FullDataXmlExport]    Script Date: 08.04.2020 12:56:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+;ALTER FUNCTION [dbo].[fn_FullDataXmlExport] (@FromDate datetime,@toDate datetime)
+RETURNS TABLE AS RETURN (
+--Для заливки из актуальных таблиц...
+	SELECT DISTINCT 
+		ROW_NUMBER() OVER (ORDER BY lines.id) AS rowNum,
+		docs.imported,
+		Convert(nvarchar,docs.imported,112)  AS Дата,
+		2 AS ИдТипаДокумента, -- нет аналога в новой бД.
+		docs.rec_state AS ИдСтатусаДокумента,  --в новой БД rec_state <> 0 значит запись удалены
+		firms.region_id as ИдРегиона,
+		firms.parent_id as ИдАптечнойСети, 
+		 docs.from_id as ИдАптеки,
+		 docs.to_id as ИдПоставщика,
+		 docs.num AS НомерЗаказа,
+		 docs.amount AS Сумма, 
+		 lines.product_name as Препарат,
+		 lines.maker_name AS Производитель, 
+		 -- lines.product_id as ИдПрепарата, оказывается тут нету кодов
+		 lines.trim_spares_id as ИдПрепарата, --А тут есть =( 2019 год
+		 0 as ИдПроизводителя, --Такой петрушки нет в новой БД
+		 lines.price AS Цена,
+		 lines.initial_quantity as Количество,
+		 lines.initial_quantity - lines.quantity AS Отказанно,
+		 lines.key_seller AS КодПозицииПоставщика
+	FROM medis.dbo.order_new_docs as docs
+		INNER JOIN medis.dbo.order_new_lines as lines on  lines.doc_id = docs.id
+		INNER JOIN medis.dbo.firms on firms.id = docs.from_id
+		INNER JOIN medis.dbo.firms as dilers on dilers.id = docs.to_id
+	WHERE (docs.imported > CONVERT(DATETIME, @FromDate, 102)) AND (docs.imported < CONVERT(DATETIME, @ToDate, 102)) and docs.rec_state = 0
+	
+
+
+)
