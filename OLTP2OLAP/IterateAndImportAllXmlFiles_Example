@@ -1,0 +1,47 @@
+
+--Получаем список файл в директории и для каждого файла выполняем вставку данных в таблицу БД
+
+DO $$ --Анонимный блок кода 
+BEGIN
+	DECLARE folder RECORD;
+	DECLARE item RECORD;
+	DECLARE fileName text;
+	DECLARE importXmlQuery text = '
+	INSERT INTO TMP_FULLDATA
+	Select xmltable.*  
+	from (Select XMLPARSE (DOCUMENT convert_from(pg_read_binary_file($1),''WIN866''))) as x,
+    XMLTABLE (''//DailyData/Medis_reports.dbo.fn_FullDataXmlExport'' PASSING xmlparse
+			  COLUMNS
+			  Дата timestamp PATH ''@Дата'',
+			  ИдТипаДокумента int PATH ''@ИдТипаДокумента'',
+			  ИдСтатусаДокумента int PATH ''@ИдСтатусаДокумента'',
+			  ИдРегиона int PATH ''@ИдРегиона'',
+			  ИдАптечнойСети int PATH ''@ИдАптечнойСети'',
+			  ИдАптеки int PATH ''@ИдАптеки'',
+			  ИдПоставщика int PATH ''@ИдПоставщика'',
+			  НомерЗаказа text PATH ''@НомерЗаказа'',
+			  Сумма float PATH ''@Сумма'',
+			  Препарат text PATH ''@Препарат'',
+			  Производитель text PATH ''@Производитель'',
+			  ИдПрепарата int PATH ''@ИдПрепарата'',
+			  ИдПроизводителя int PATH ''@ИдПроизводителя'',
+			  Цена float PATH ''@Цена'',
+			  Количество float path ''@Количество'',
+			  Отказанно float path ''@Количество'',
+			  КодПозицииПоставщика text path ''@КодПозицииПоставщика''
+	);';
+BEGIN 
+    FOR folder IN select pg_ls_dir as fname from pg_ls_dir('XmlImport')--Перебираем дирректории
+    LOOP 
+		RAISE NOTICE '%',folder.fname;
+		FOR item in (select pg_ls_dir as fileName from pg_ls_dir('XmlImport' ||'\\' || folder.fname))
+		LOOP
+			fileName ='XmlImport\\'  || folder.fname|| '\\' || item.fileName;
+			RAISE NOTICE '%', fileName;
+			RAISE NOTICE '%', importXmlQuery;
+			
+			--EXECUTE importXmlQuery USING fileName; --Импортируем данные из XML
+		END LOOP;
+   END LOOP;
+END;
+END; $$
