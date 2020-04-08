@@ -1,0 +1,28 @@
+--Пример чтения и импорта из XML Z:\PostgreSQL\12\data\XmlImport\\20200222\\DailyData1.xml
+TRUNCATE TABLE TMP_FULLDATA;
+	
+	INSERT INTO TMP_FULLDATA
+	Select xmltable.*  
+	from (Select XMLPARSE (DOCUMENT convert_from(pg_read_binary_file('XmlImport\\20200222\\DailyData1.xml'),'WIN866'))) as x,
+    XMLTABLE ('//DailyData/Medis_reports.dbo.fn_FullDataXmlExport' PASSING xmlparse
+			  COLUMNS
+			  Дата timestamp PATH '@Дата',
+			  ИдТипаДокумента int PATH '@ИдТипаДокумента',
+			  ИдСтатусаДокумента int PATH '@ИдСтатусаДокумента',
+			  ИдРегиона int PATH '@ИдРегиона',
+			  ИдАптечнойСети int PATH '@ИдАптечнойСети',
+			  ИдАптеки int PATH '@ИдАптеки',
+			  ИдПоставщика int PATH '@ИдПоставщика',
+			  НомерЗаказа text PATH '@НомерЗаказа',
+			  Сумма float PATH '@Сумма',
+			  Препарат text PATH '@Препарат',
+			  Производитель text PATH '@Производитель',
+			  ИдПрепарата int PATH '@ИдПрепарата',
+			  ИдПроизводителя int PATH '@ИдПроизводителя',
+			  Цена float PATH '@Цена',
+			  Количество float path '@Количество',
+			  Отказанно float path '@Количество',
+			  КодПозицииПоставщика text path '@КодПозицииПоставщика'
+	);
+	
+Select * from TMP_FULLDATA;
