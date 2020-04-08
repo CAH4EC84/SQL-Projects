@@ -1,0 +1,55 @@
+/*Выгрузка данных из MS SQL в формат XML.
+Данные выгружаются за прошедшие сутки в каталог именованный датой и с разбивкой на файлы по 10000 строк
+fn_FullDataXmlExport - функция взвращающая табличное значение форматированного экспорта.
+*/
+
+--Определяем дата для экспортируемых данных
+DECLARE @FromDate nvarchar(20) ,@ToDate nvarchar(20)
+SET @FromDate = (CONVERT(nvarchar, (SELECT MAX(Дата) FROM Medis_reports.dbo.FULLDATA f), 112))
+--SET @FromDate = '20200212'
+SET @ToDate = CONVERT(nvarchar, DATEADD(day,1,CAST(@FromDate AS date)), 112)
+SELECT @FromDate,@ToDate
+
+--Настройки экспорта
+DECLARE @GetDataSQL AS nvarchar(1000); 
+DECLARE @workDir AS nvarchar(max) = 'C:\Temp\'
+DECLARE @exportPath AS nvarchar(max);
+DECLARE @mkdirCmd varchar(255);
+DECLARE @exportCMD varchar(1000);
+DECLARE @result int;
+DECLARE @rowsCount int =0 
+DECLARE @i int, @j int
+
+
+--В цикле выбираем данные за каждый день и экспортируем их в отдельную директорию, именованную на основе @fromDate
+
+WHILE ( CAST(@fromDate AS date) < CONVERT(nvarchar, GETDATE(), 112) )
+BEGIN
+	
+	--SELECT @FromDate AS FromDate,@ToDate AS Todate,CONVERT(nvarchar, GETDATE(), 112) AS Today
+	--Путь экспорта и директорию для экспорта
+	SET @exportPath  = @workDir+@FromDate + '\'
+	SET @mkdirCmd = 'md ' + @exportPath
+	EXEC @result = xp_cmdshell @mkdirCmd
+	
+	--Выбриаем обще кол-во строк за сутки
+	SET @rowsCount = (SELECT Count(*) from Medis_reports.[dbo].[fn_FullDataXmlExport] (@fromDate,@toDate))
+	SET @i = 1; SET @j=1;
+	WHILE  (@i<@rowsCount) --Выгружаем порциями
+	BEGIN
+		SET @GetDataSQL = 'Select * from Medis_reports.[dbo].[fn_FullDataXmlExport]  ('''+@FromDate+''','''+@ToDate+''')  WHERE rowNum BETWEEN '+CAST(@i AS nvarchar)+' AND '+CAST((@i+10000) AS nvarchar)+' ORDER BY rowNum FOR XML AUTO,ROOT(''DailyData'')'
+		--SELECT @GetDataSQL
+		SET @exportCMD = 'bcp " '+@GetDataSQL+'" queryout '+@exportPath +  'DailyData' +CAST(@j AS nvarchar)++'.xml -c -r -S MEDDB -U sa -P supertrimcreator'
+	--Выгружаем данные
+		--SELECT @exportCMD
+		EXEC @result = xp_cmdshell @exportCMD
+		SET @i=(@i+10000)
+		SET @j=(@j+1)
+	END
+	--+1 день
+	--+1 день
+	Set @FromDate = CONVERT(nvarchar,DATEADD(day,1,CAST(@FromDate AS date)),112)
+	set @ToDate = CONVERT(nvarchar,DATEADD(day,1,CAST(@ToDate AS date)),112)
+
+END
+-----------------------------------------------
